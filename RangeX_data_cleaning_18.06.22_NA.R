@@ -179,6 +179,45 @@ traits_2022 <- traits_2022[, col_order]
 traits_2022
 
 
+## you need a column with the site + treatments: hi_warm_vege
+traits_2022_exploration <- traits_2022
+
+traits_2022_exploration$treatment <- paste(traits_2022_exploration$site, 
+                                           traits_2022_exploration$treat_warming,
+                                           traits_2022_exploration$treat_competition,
+                                           sep = "_")
+
+unique(traits_2022_exploration$treatment)
+
+
+
+# plot figures to explore data --------------------------------------------
+ggplot(data = traits_2022_exploration, aes(species, height_vegetative_str, fill = treatment))+
+  geom_boxplot()
+
+
+# Check for NAs -----------------------------------------------------------
+# filter all rows with NA's for height_vegetative_str
+traits_2022_height_na <- traits_2022_exploration %>% 
+  filter(is.na(height_vegetative_str)) 
+#
+## plants with NAs everywhere are dead/not found --> see notes
+
+## why do some plants not have a height, but leaf length/width 
+## maybe forgot to enter or measure data
+
+## hi, 1 f, c2, e4, g6 (NOR.hi.ambi.bare.wf.01.01 / NOR.hi.ambi.bare.wf.01.10 / NOR.hi.ambi.bare.wf.01.18)
+## hi, 10 e, d3
+## hi, 10 f, d3, g8
+## lo, 10 b, d7, h3
+
+## CHECK on raw data file!
+
+## what do we do with these data
+
+
+
+
 
 # load metadata for data entry Yearly demographics ----------------------------------------------------------
 
@@ -269,9 +308,6 @@ rangex_traits_22 <- rangex_traits_22 %>%
 ## now the data frame should have the correct format of yearly_demographics
 
 
-# plot figures to explore data --------------------------------------------
-
-ggplot(rangex_traits_22, aes(x= species, y = ))
 
 
 
