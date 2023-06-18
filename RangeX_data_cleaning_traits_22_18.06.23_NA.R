@@ -16,6 +16,7 @@ library(tidyr) # data manipulation
 library(ggplot2) # test-plotting
 library(stringr) # working with regex
 library("tidyverse")
+library(ggstatsplot)
 
 # load data 2022 traits high ---------------------------------------------------------------
 traits_high_22 <- read.csv2("RangeX_raw_traits_high_2022.csv")
@@ -196,10 +197,16 @@ ggplot(data = traits_2022_exploration, aes(species, height_vegetative_str, fill 
   geom_boxplot()
 
 
-# Check for NAs -----------------------------------------------------------
+
+# Check every column for NAs. ... -----------------------------------------------------------
+
+summary(traits_2022_exploration)
+
 # filter all rows with NA's for height_vegetative_str
 traits_2022_height_na <- traits_2022_exploration %>% 
   filter(is.na(height_vegetative_str)) 
+
+length(traits_2022_height_na$height_vegetative_str) ## 45
 #
 ## plants with NAs everywhere are dead/not found --> see notes
 
@@ -219,6 +226,45 @@ traits_2022_height_na <- traits_2022_exploration %>%
 ## just leave them in the dataset
 
 
+traits_2022_leaf_l_na <- traits_2022_exploration %>% 
+  filter(is.na(leaf_length))
+#
+length(traits_2022_leaf_l_na$leaf_length) ## 50
+#
+## 13 plants have height and flower number, but no leaf length/width
+## in total 33 plants of the high and 17 of the low site have no leaf length 
+
+
+# number of flowers -------------------------------------------------------
+## some values for number of flowers have a star, why
+traits_2022_exploration$number_flowers
+
+traits_2022_exploration <- traits_2022_exploration %>% 
+  separate(number_flowers, c("number_flowers", "B"))
+
+## column B is empty, but the stars are gone now, so delete column B
+
+traits_2022_exploration <- traits_2022_exploration %>% 
+  dplyr::select(-B)
+
+class(traits_2022_exploration$number_flowers)
+## is character, but should be numeric
+## change to numeric
+traits_2022_exploration$number_flowers <- as.numeric(traits_2022_exploration$number_flowers)
+
+## several silene dioica plants have more than 100 flowers
+## did they count stems or all flowers
+
+
+# date --------------------------------------------------------------------
+## change format of date
+traits_2022_exploration <- traits_2022_exploration %>% 
+  mutate(date = as.Date(date, "%d.%m.%y"))
+
+
+# year --------------------------------------------------------------------
+## should be numeric
+traits_2022_exploration$year <- as.numeric(traits_2022_exploration$year)
 
 
 
@@ -230,12 +276,91 @@ traits_2022_height_na <- traits_2022_exploration %>%
 
 
 
+# leaf length -------------------------------------------------------------
+
+## plot leaf length against leaf width
+ggplot(data = traits_2022_exploration, aes(leaf_length, leaf_width, color = treatment, shape = site))+
+  geom_point()+
+  facet_wrap(~ species)
+
+## plalan has very long leaves
 
 
 
+# filter per species Plantago ------------------------------------------------------
+
+plalan <- traits_2022_exploration %>%  filter(.,(species == "plalan"))
+head(plalan)
+plalan$height_vegetative_str
+class(plalan$height_vegetative_str)
+
+## plot leaf length against leaf width
+ggplot(data = plalan, aes(leaf_length, leaf_width, color = treatment))+
+  geom_point()
 
 
 
+# detect and delete outliers for leaf length ---------------------------------------------------------
+## https://www.r-bloggers.com/2020/01/how-to-remove-outliers-in-r/
+
+## only plalan
+# Create a boxplot of the dataset, outliers are shown as two distinct points
+boxplot(plalan$leaf_length)$out
+
+#Create a boxplot that labels the outliers  
+ggbetweenstats(plalan, treatment, leaf_length, outlier.tagging = TRUE)
+
+
+
+## use whole dataset
+# Create a boxplot of the dataset, outliers are shown as two distinct points
+boxplot(traits_2022_exploration$leaf_length)$out
+
+#Create a boxplot that labels the outliers  
+ggbetweenstats(traits_2022_exploration, treatment, leaf_length, outlier.tagging = TRUE)
+#
+ggbetweenstats(traits_2022_exploration, site, leaf_length, outlier.tagging = TRUE)
+#
+
+Q <- quantile(traits_2022_exploration$leaf_length, probs=c(.25, .75), na.rm = T)
+Q
+
+iqr <- IQR(traits_2022_exploration$leaf_length, na.rm = T)
+iqr
+
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range
+
+eliminated<- subset(traits_2022_exploration, traits_2022_exploration$leaf_length > (Q[1] - 1.5*iqr) 
+                    & traits_2022_exploration$leaf_length < (Q[2]+1.5*iqr))
+eliminated
+
+ggbetweenstats(eliminated, treatment, leaf_length, outlier.tagging = TRUE) 
+
+
+length(eliminated$leaf_length) ## 1668
+length(traits_2022_exploration$leaf_length) ## 1800
+
+## plot leaf length against leaf width for all species
+ggplot(data = eliminated, aes(leaf_length, leaf_width, color = treatment))+
+  geom_point()+
+  facet_wrap( ~ species)
+
+
+
+## filter only plalan
+plalan_eliminated <- eliminated %>%  filter(.,(species == "plalan"))
+head(plalan_eliminated)
+plalan_eliminated$leaf_length
+max(plalan_eliminated$leaf_length)
+
+## plot leaf length against leaf width
+ggplot(data = plalan_eliminated, aes(leaf_length, leaf_width, color = treatment))+
+  geom_point()
+
+## the function deleted all the values above 300 mm for leaf length
+
+## big question: can I delete these values that the function considered as outliers?
 
 
 
@@ -249,6 +374,7 @@ dput(colnames(yearly_demographics))
 
 
 # adapt traits_2022 in the format of yearly demographics ------------------
+## !! use traits_2022_exploration !!
 
 ## add column with year
 traits_2022 <- traits_2022 %>%
