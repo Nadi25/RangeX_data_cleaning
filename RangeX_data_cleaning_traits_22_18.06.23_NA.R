@@ -109,7 +109,7 @@ traits_low_22 <- traits_low_22 %>%
   add_column(region = "NOR")
 traits_low_22
 
-## add column with site = hi for high
+## add column with site = lo for low
 traits_low_22 <- traits_low_22 %>%
   add_column(site = "lo")
 traits_low_22
@@ -142,6 +142,16 @@ traits_22 <- traits_22 %>%
   arrange(block_ID_original,plot_ID_original, position_ID_original, .by_group = TRUE)
 
 
+
+# add column year ----------------------------------------------------------
+traits_22 <- traits_22 %>%
+  add_column(year = 2022)
+traits_22
+
+class(traits_22$year)
+
+
+
 # load metadata file for all countries ------------------------------------------------------
 metadata <- read.csv2("RangeX_Metadata.csv")
 head(metadata)
@@ -171,7 +181,7 @@ traits_2022 <- left_join(traits_22, metadata,
 dput(colnames(traits_2022))
 
 col_order <- c("region", "site", "block_ID_original", "plot_ID_original", 
-               "position_ID_original", "species", "treat_warming", "treat_competition", 
+               "position_ID_original", "species", "year", "treat_warming", "treat_competition", 
                "added_focals", "block_ID", "position_ID", "unique_plot_ID", 
                "unique_plant_ID", "height_vegetative_str", "petiole_length", "leaf_length", "leaf_width", 
                "number_flowers", "date", "notes")
@@ -179,6 +189,8 @@ col_order <- c("region", "site", "block_ID_original", "plot_ID_original",
 traits_2022 <- traits_2022[, col_order]
 traits_2022
 
+
+# data exploration --------------------------------------------------------
 
 ## you need a column with the site + treatments: hi_warm_vege
 traits_2022_exploration <- traits_2022
@@ -193,6 +205,7 @@ unique(traits_2022_exploration$treatment)
 
 
 # plot figures to explore data --------------------------------------------
+## vegetative height streched for all species and all treatments
 ggplot(data = traits_2022_exploration, aes(species, height_vegetative_str, fill = treatment))+
   geom_boxplot()
 
@@ -219,13 +232,14 @@ length(traits_2022_height_na$height_vegetative_str) ## 45
 ## lo, 10 b, d7, h3
 
 ## CHECK on raw data file!
+## maybe that's because there was no flower, so Nathan measured height as total-flower
 
 ## what do we do with these values
 
 ## AND what do we do with dead plants
 ## just leave them in the dataset
 
-
+# filter all rows with NA's for leaf length
 traits_2022_leaf_l_na <- traits_2022_exploration %>% 
   filter(is.na(leaf_length))
 #
@@ -234,9 +248,17 @@ length(traits_2022_leaf_l_na$leaf_length) ## 50
 ## 13 plants have height and flower number, but no leaf length/width
 ## in total 33 plants of the high and 17 of the low site have no leaf length 
 
+# filter all rows with NA's for leaf width
+traits_2022_leaf_w_na <- traits_2022_exploration %>% 
+  filter(is.na(leaf_width))
+#
+length(traits_2022_leaf_w_na$leaf_width) ## 51
+#
+## 	hi, 10 a, e8, sildio has leaf length, but no width (also not in raw data sheet)
 
 # number of flowers -------------------------------------------------------
 ## some values for number of flowers have a star, why
+## because there is a comment, like: not blooming yet, fallen off,...
 traits_2022_exploration$number_flowers
 
 traits_2022_exploration <- traits_2022_exploration %>% 
@@ -254,17 +276,13 @@ traits_2022_exploration$number_flowers <- as.numeric(traits_2022_exploration$num
 
 ## several silene dioica plants have more than 100 flowers
 ## did they count stems or all flowers
+## sildio can have many flowers
 
 
 # date --------------------------------------------------------------------
 ## change format of date
 traits_2022_exploration <- traits_2022_exploration %>% 
   mutate(date = as.Date(date, "%d.%m.%y"))
-
-
-# year --------------------------------------------------------------------
-## should be numeric
-traits_2022_exploration$year <- as.numeric(traits_2022_exploration$year)
 
 
 
@@ -303,6 +321,9 @@ ggplot(data = plalan, aes(leaf_length, leaf_width, color = treatment))+
 # detect and delete outliers for leaf length ---------------------------------------------------------
 ## https://www.r-bloggers.com/2020/01/how-to-remove-outliers-in-r/
 
+## it probably removes the upper and lower 25% of the data points
+
+
 ## only plalan
 # Create a boxplot of the dataset, outliers are shown as two distinct points
 boxplot(plalan$leaf_length)$out
@@ -316,9 +337,9 @@ ggbetweenstats(plalan, treatment, leaf_length, outlier.tagging = TRUE)
 # Create a boxplot of the dataset, outliers are shown as two distinct points
 boxplot(traits_2022_exploration$leaf_length)$out
 
-#Create a boxplot that labels the outliers  
+#Create a boxplot that labels the outliers per treatment
 ggbetweenstats(traits_2022_exploration, treatment, leaf_length, outlier.tagging = TRUE)
-#
+#per site
 ggbetweenstats(traits_2022_exploration, site, leaf_length, outlier.tagging = TRUE)
 #
 
@@ -340,6 +361,7 @@ ggbetweenstats(eliminated, treatment, leaf_length, outlier.tagging = TRUE)
 
 length(eliminated$leaf_length) ## 1668
 length(traits_2022_exploration$leaf_length) ## 1800
+## 132 values have been deleted
 
 ## plot leaf length against leaf width for all species
 ggplot(data = eliminated, aes(leaf_length, leaf_width, color = treatment))+
@@ -361,7 +383,19 @@ ggplot(data = plalan_eliminated, aes(leaf_length, leaf_width, color = treatment)
 ## the function deleted all the values above 300 mm for leaf length
 
 ## big question: can I delete these values that the function considered as outliers?
+## problem: plants that are dead, so e.g. without height are now deleted?
 
+## filter only pimsax
+pimsax_eliminated <- eliminated %>%  filter(.,(species == "pimsax"))
+head(pimsax_eliminated)
+pimsax_eliminated$leaf_length
+max(pimsax_eliminated$leaf_length)
+
+## plot leaf length against leaf width
+ggplot(data = pimsax_eliminated, aes(leaf_length, leaf_width, color = treatment))+
+  geom_point()
+## there are still values that look like outliers
+## length 225 mm and width 3 mm
 
 
 
@@ -374,13 +408,13 @@ dput(colnames(yearly_demographics))
 
 
 # adapt traits_2022 in the format of yearly demographics ------------------
-## !! use traits_2022_exploration !!
+## !! use traits_2022_exploration !! or eliminated !!
 
-## add column with year
-traits_2022 <- traits_2022 %>%
-  add_column(year = "2022")
-head(traits_2022)
-
+# ## add column with year
+# traits_2022 <- traits_2022 %>%
+#   add_column(year = "2022")
+# head(traits_2022)
+# 
 
 ## add all of these columns:
 # "height_reproductive_str", "height_vegetative", "height_reproductive", 
@@ -390,7 +424,7 @@ head(traits_2022)
 
 ## collector is not so easy, because its not recorded at the digitized table
 
-traits_2022 <- traits_2022 %>%
+traits_2022_exploration <- traits_2022_exploration %>%
   dplyr::mutate(
     collector = NA,
     height_reproductive_str = NA,
@@ -410,24 +444,25 @@ traits_2022 <- traits_2022 %>%
     herbivory = NA
   )
 
-dput(colnames(traits_2022))
+dput(colnames(traits_2022_exploration))
 
 ## delete "region", "site", "block_ID_original", "plot_ID_original", 
 ## "position_ID_original","treat_warming", "treat_competition", 
 ## "added_focals", "block_ID", "position_ID", "unique_plot_ID"
 
-rangex_traits_22 <- traits_2022 %>%
+rangex_traits_22 <- traits_2022_exploration %>%
   dplyr::select(-region, -site, -block_ID_original, -plot_ID_original, 
                 -position_ID_original, -treat_warming, -treat_competition, 
                 -added_focals, -block_ID, -position_ID, -unique_plot_ID) %>% 
   dplyr::ungroup()
 
-dput(colnames(rangex_traits_22))
-length(rangex_traits_22) # 28
-length(yearly_demographics) # 23
-
 ## Adding missing grouping variables: `site`, `block_ID_original`, `plot_ID_original`
 ## WHY cant I delete them
+
+dput(colnames(rangex_traits_22))
+length(rangex_traits_22) # 30
+length(yearly_demographics) # 23
+
 
 ## make correct order as in yearly_demographics
 col_order_traits_22 <- c("site", "block_ID_original", "plot_ID_original","unique_plant_ID", 
@@ -456,7 +491,13 @@ rangex_traits_22 <- rangex_traits_22 %>%
 
 
 
+# save csv file -----------------------------------------------------------
 
+# write.csv(rangex_traits_22, "C:/Users/nadin/OneDrive - University of Bergen/PhD_RangeX/R codes/RangeX_data_cleaning/Data_traits/RangeX_clean_traits_2022.csv",
+#           row.names = FALSE)
+
+## read cleaned data
+data <- read.csv("RangeX_clean_traits_2022.csv")
 
 
 
