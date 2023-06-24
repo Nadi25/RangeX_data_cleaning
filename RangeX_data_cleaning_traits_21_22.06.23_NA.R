@@ -108,23 +108,6 @@ length(traits_high_21)
 
 
 
-
-# vegetative height ------------------------------------------------------
-
-## what has been measured for height_vegetative_str
-## in the read_me it says: stretched vegetative plant height (not including inflorescence)
-## but on the paper sheet: stem height and plant height (this column is not digitized)
-## why did they cross the column plant height - it would make more sense to have this 
-## why is there no height for every plant for stem height?
-
-## what does (s) and (f) mean in stem height?
-
-traits_high_21$height_vegetative_str
-
-
-
-
-
 # load data 2021 traits low ---------------------------------------------------------------
 
 traits_low_21 <- read.csv2("RangeX_raw_traits_low_2021.csv")
@@ -266,8 +249,15 @@ traits_2021
 
 # vegetative height -------------------------------------------------------
 
-## many values have (s) or (f) 
-traits_2021$height_vegetative_str
+## what has been measured for height_vegetative_str
+## in the read_me it says: stretched vegetative plant height (not including inflorescence)
+## but on the paper sheet: stem height and plant height (this column is not digitized)
+## why did they cross the column plant height - it would make more sense to have this 
+## why is there no height for every plant for stem height?
+
+## what does (s) and (f) mean in stem height?
+
+traits_high_21$height_vegetative_str
 
 traits_2021 <- traits_2021 %>% 
   separate(height_vegetative_str, c("height_vegetative_str", "B", "C", "D", "E", "F"))
@@ -281,9 +271,9 @@ traits_2021[traits_2021$site == "hi" & traits_2021$block_ID_original == "1"
           & traits_2021$position_ID_original == "c6", "height_vegetative_str"] <- NA
 
 
-## delete columns B-G
+## delete columns B-F
 traits_2021 <- traits_2021 %>%
-  dplyr::select(-B, -C, -D, -E, -F, -G)
+  dplyr::select(-B, -C, -D, -E, -F)
 
 traits_2021$height_vegetative_str <- as.numeric(traits_2021$height_vegetative_str)
 class(traits_2021$height_vegetative_str)
@@ -293,6 +283,33 @@ class(traits_2021$height_vegetative_str)
 traits_2021 <- traits_2021 %>% 
   mutate(date = as.Date(date, "%d.%m.%y"))
 
+
+# leaf length -------------------------------------------------------------
+class(traits_2021$leaf_length2)
+traits_2021$leaf_length1 <- as.numeric(traits_2021$leaf_length1)
+traits_2021$leaf_length2 <- as.numeric(traits_2021$leaf_length2)
+traits_2021$leaf_length3 <- as.numeric(traits_2021$leaf_length3)
+
+
+# Check every column for NAs. ... -----------------------------------------------------------
+
+summary(traits_2021)
+
+# filter all rows with NA's for height_vegetative_str
+traits_2021_height_na <- traits_2021 %>% 
+  filter(is.na(height_vegetative_str)) 
+
+length(traits_2021_height_na$height_vegetative_str) ## 
+#
+
+# filter all rows with NA's for leaf_length
+traits_2021_leaf_length_na <- traits_2021 %>% 
+  filter(is.na(leaf_length3)) 
+
+length(traits_2021_leaf_length_na$leaf_length3) ## 1
+#
+# hi, 8, b, d7, pimsax
+## check on raw data sheet
 
 
 # data exploration --------------------------------------------------------
@@ -318,11 +335,41 @@ ggplot(data = traits_2021_exploration, aes(species, height_vegetative_str, fill 
 
 ## that's not so good
 
-## leaf length
-ggplot(data = traits_2021_exploration, aes(species, leaf_length1, fill = treatment))+
-  geom_boxplot()
+## plot leaf length1
+ggplot(data = traits_2021_exploration, aes(treatment, leaf_length1, fill = treatment))+
+  geom_boxplot()+
+  facet_wrap(~species)
 
-## calculate a mean of leaf_length1, 2 and 3
+## it does not look like big differences between treatments
+## remember, its the year, in which they have been plated
+
+
+# filter per species Plantago ------------------------------------------------------
+
+plalan21 <- traits_2021_exploration %>%  filter(.,(species == "plalan"))
+head(plalan21)
+plalan21$height_vegetative_str
+class(plalan21$height_vegetative_str)
+
+## plot leaf length 
+ggplot(data = plalan21, aes(treatment,leaf_length1, color = treatment))+
+  geom_point()
+
+## calculate a mean of leaf_length1, 2 and 3 at some point
+
+# plalan_21_leaf_length <- plalan21 %>%
+#   mutate(mean_leaf_length = rowMeans(select(., leaf_length1, leaf_length2, leaf_length3), na.rm = TRUE))
+# 
+# class(plalan21$leaf_length3)
+# 
+# plalan_21_leaf_length <- plalan21 %>%
+#   select(leaf_length1, leaf_length2, leaf_length3, treatment)
+# 
+# 
+# plalan_21_leaf_length <- plalan_21_leaf_length %>%
+#   mutate(mean_leaf_length = rowMeans(select(., leaf_length1, leaf_length2, leaf_length3), na.rm = TRUE, dims = 1))
+# 
+
 
 
 
@@ -342,8 +389,69 @@ dput(colnames(yearly_demographics))
 ## adding sam, petiole_length2 and 3 to the yearly demographics
 
 
+traits_2021 <- traits_2021 %>%
+  dplyr::mutate(
+    collector = NA,
+    height_reproductive_str = NA,
+    height_vegetative = NA,
+    height_reproductive = NA,
+    vegetative_width = NA,
+    vegetative_length = NA,
+    leaf_width = NA,
+    stem_diameter = NA,
+    number_leaves = NA,
+    number_tillers = NA,
+    number_branches = NA,
+    number_leafclusters = NA,
+    number_flowers = NA,
+    mean_inflorescence_size = NA,
+    herbivory = NA
+  )
+
+dput(colnames(traits_2021))
+
+## delete "region", "site", "block_ID_original", "plot_ID_original", 
+## "position_ID_original","treat_warming", "treat_competition", 
+## "added_focals", "block_ID", "position_ID", "unique_plot_ID"
+
+rangex_traits_21 <- traits_2021 %>%
+  dplyr::select(-region, -site, -block_ID_original, -plot_ID_original, 
+                -position_ID_original, -treat_warming, -treat_competition, 
+                -added_focals, -block_ID, -position_ID, -unique_plot_ID) %>% 
+  dplyr::ungroup()
+
+dput(colnames(rangex_traits_21))
+length(rangex_traits_21) # 31
+length(yearly_demographics) # 23
+
+## make correct order as in yearly_demographics
+col_order_traits_21 <- c("site", "block_ID_original", "plot_ID_original","unique_plant_ID", 
+                         "species", "year", "collector", "height_vegetative_str", 
+                         "height_reproductive_str", "height_vegetative", "height_reproductive", 
+                         "vegetative_width", "vegetative_length", "stem_diameter",
+                         "leaf_length1", "leaf_length2", "leaf_length3", "leaf_width",
+                         "petiole_length1", "petiole_length2", "petiole_length3",
+                         "number_leaves", "number_tillers", "number_branches", "number_leafclusters", 
+                         "number_flowers", "mean_inflorescence_size", "sam", "herbivory")
+
+rangex_traits_21 <- rangex_traits_21[, col_order_traits_21]
+rangex_traits_21
+
+## delete site, block_ID_original, plot_ID_original
+rangex_traits_21 <- rangex_traits_21 %>%
+  dplyr::select(-site, -block_ID_original, -plot_ID_original)
+rangex_traits_21
+## now the data frame should have the correct format of yearly_demographics
 
 
+
+# save csv file -----------------------------------------------------------
+
+# write.csv(rangex_traits_21, "C:/Users/nadin/OneDrive - University of Bergen/PhD_RangeX/R codes/RangeX_data_cleaning/Data_traits/RangeX_clean_traits_2021.csv",
+#           row.names = FALSE)
+
+## read cleaned data
+data_21 <- read.csv("RangeX_clean_traits_2021.csv")
 
 
 
